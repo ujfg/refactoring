@@ -262,3 +262,126 @@ function enrichReading(argReading) {
 - レコードのプロパティを変換するロジックを、その関数のプロパティに追加する
 ### ポイント
 - 元のレコードの持つ値が途中で変化する可能性があるなら「関数群のクラスへの集約」を行ったほうが良い
+## フェーズの分離
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/splitphase.html
+### before
+```js
+function priceOrder(product, quantity, shippingMethod) {
+  const basePrice = product.basePrice * quantity;
+  const discount = Math.max(quantity - product.discountThreshold, 0)
+          * product.basePrice * product.discountRate;
+  const shippingPerCase = (basePrice > shippingMethod.discountThreshold)
+          ? shippingMethod.discountedFee : shippingMethod.feePerCase; 
+  const shippingCost = quantity * shippingPerCase;
+  const price =  basePrice - discount + shippingCost;
+  return price;
+}
+```
+### after
+```js
+function priceOrder(product, quantity, shippingMethod) {
+  const priceData = calculatePricingData(product, quantity);
+  return applyShipping(priceData, shippingMethod);
+}
+  
+function calculatePricingData(product, quantity) {
+  const basePrice = product.basePrice * quantity;
+  const discount = Math.max(quantity - product.discountThreshold, 0)
+          * product.basePrice * product.discountRate;
+  return {basePrice: basePrice, quantity: quantity, discount:discount};
+}
+function applyShipping(priceData, shippingMethod) {
+  const shippingPerCase = (priceData.basePrice > shippingMethod.discountThreshold)
+          ? shippingMethod.discountedFee : shippingMethod.feePerCase; 
+  const shippingCost = priceData.quantity * shippingPerCase;
+  return priceData.basePrice - priceData.discount + shippingCost;
+}
+```
+### 動機
+- 一つの関数が二つの処理(データの整形と、整形済みデータを使った計算)を行っていて分離したい
+### 手順
+- 後半フェーズのコードを関数として抽出し、引数として空の中間データ構造を導入する
+- 空の中間データ構造に必要な引数を追加していく
+- 中間データ構造を返す関数を前半に実装する
+### ポイント
+- リンクに安全にリファクタリングするための方法が載っている
+# 第７章 カプセル化
+## レコードのカプセル化
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/encapsulaterecord.html
+### before
+```js
+organization = {name: "Acme Gooseberries", country: "GB"};
+```
+### after
+```js
+class Organization {
+  constructor(data) {
+    this._name = data.name; // プロパティにアンスコつけるのは古い習慣
+    this._country = data.country;
+  }
+  get name()    {return this._name;}
+  set name(arg) {this._name = arg;}
+  get country()    {return this._country;}
+  set country(arg) {this._country = arg;}
+}
+```
+### 動機
+- レコード構造(値がそのまま入っている)のデータ自体は隠蔽し、取り出したい計算結果だけを公開したい
+### 手順
+- 移行的手段はリンク参照
+### ポイント
+- 入れ子になったjsonを扱う際にも有効
+## コレクションのカプセル化
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/encapsulatecollection.html
+### before
+```js
+class Person {              
+  get courses() {return this._courses;}
+  set courses(aList) {this._courses = aList;}
+```
+### after
+```js
+lass Person {
+  get courses() {return this._courses.slice();}
+  addCourse(aCourse)    { ... }
+  removeCourse(aCourse) { ... }
+```
+### 動機
+- カプセル化していても、getterでコレクション(配列)を返すと、そのクラスを経由せずにインスタンス変数が変更できてしまうのを防ぎたい
+### 手順
+- getterでは配列をそのまま返すのではなく、配列のコピーを返す
+- 配列に要素を追加するメソッドと削除するメソッドを作成する
+  - 上記でsetterは不要になるはずだが、必要であれば引数をコピーしてからセットするようにする
+### ポイント
+- 配列を操作するとコピーを返す言語もあるが、そうでない場合は注意が必要
+## オブジェクトによるプリミティブの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replaceprimitivewithobject.html
+### before
+```js
+orders.filter(o => "high" === o.priority
+                || "rush" === o.priority);
+```
+### after
+```js
+orders.filter(o => o.priority.higherThan(new Priority("normal")))
+```
+### 動機
+- プリミティブな値を値オブジェクトっぽく扱いたい
+### 手順
+- データのための単純な値クラスを作成する
+### ポイント
+- getterはtoStringとかにするのも良い
+- 新たなオブジェクトが参照オブジェクトなのか値オブジェクトなのか検討(リンク参照)
+## 問い合わせによる一時変数の置き換え
+
+### before
+```js
+
+```
+### after
+```js
+
+```
+### 動機
+### 手順
+### ポイント
