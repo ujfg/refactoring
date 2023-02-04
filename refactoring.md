@@ -373,15 +373,155 @@ orders.filter(o => o.priority.higherThan(new Priority("normal")))
 - getterはtoStringとかにするのも良い
 - 新たなオブジェクトが参照オブジェクトなのか値オブジェクトなのか検討(リンク参照)
 ## 問い合わせによる一時変数の置き換え
-
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacetempwithquery.html
 ### before
 ```js
-
+const basePrice = this._quantity * this._itemPrice;
+if (basePrice > 1000)
+  return basePrice * 0.95;
+else
+  return basePrice * 0.98;
 ```
 ### after
 ```js
+get basePrice() {this._quantity * this._itemPrice;}
+
+...
+
+if (this.basePrice > 1000)
+  return this.basePrice * 0.95;
+else
+  return this.basePrice * 0.98;
+```
+### 動機
+- クラスの中で、あらかじめ計算された結果を後から参照するような変数を関数に置き換えたい
+### 手順
+- 置き換えようとしている変数が不変であることを確認(constにしてみて確認)
+- 一時変数への代入を関数として抽出する
+### ポイント
+- 結果が同じになることが重要
+## クラスの抽出
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/extractclass.html
+### before
+```js
+class Person {
+  get officeAreaCode() {return this._officeAreaCode;}
+  get officeNumber()   {return this._officeNumber;}
+```
+### after
+```js
+class Person {
+  get officeAreaCode() {return this._telephoneNumber.areaCode;}
+  get officeNumber()   {return this._telephoneNumber.number;}
+}
+class TelephoneNumber {
+  get areaCode() {return this._areaCode;}
+  get number()   {return this._number;}
+}
+```
+### 動機
+- 巨大になったクラスを分割したい
+### 手順
+- クラスの中で分割できそうな単位を探す(データの一部が同時に更新されたり、互いに強く依存していたりする部分)
+- 新たなクラスを作り、元のクラスのnew時にattributeとして新たなクラスのインスタンスを持つようにする
+- 新たな子クラスにメソッドを移していく
+### ポイント
+- 子クラスは値オブジェクトになることが多い
+  - 値オブジェクトとして他のクラスからも使うなら「参照から値への変更」を検討する
+## クラスのインライン化
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/inlineclass.html
+### before
+```js
+class Person {
+  get officeAreaCode() {return this._telephoneNumber.areaCode;}
+  get officeNumber()   {return this._telephoneNumber.number;}
+}
+class TelephoneNumber {
+  get areaCode() {return this._areaCode;}
+  get number()   {return this._number;}
+}
+```
+### after
+```js
+class Person {
+  get officeAreaCode() {return this._officeAreaCode;}
+  get officeNumber()   {return this._officeNumber;}
+```
+### 動機
+- 不要になったクラスを別のクラスの一部にしたい
+### 手順
+- 畳み込み先のクラスに、不要になったクラスのpublicメソッドを実装し、順次テストしながら移行していく
+### ポイント
+- 絡み合ったクラスを正しく分割するために、一旦統合して再分割する時にも有効
+## 委譲の隠蔽
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/hidedelegate.html
+### before
+```js
+manager = aPerson.department.manager;
+```
+### after
+```js
+manager = aPerson.manager;
+
+class Person {
+  get manager() {return this.department.manager;}
+```
+### 動機
+- 他のクラスの中身を知りすぎない(メソッドチェーンを長くしない)ために、委譲を隠蔽するラッパークラスのようなものを作りたい
+### 手順
+- 委譲用メソッドを作ったクラスを呼び出すように、テストしながら順次置換していく
+### ポイント
+- 他のクラスの中身を知りすぎている(依存している)と、そのクラスが変更された時の被害が甚大
+## 仲介人の除去
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/removemiddleman.html
+### before
+```js
+manager = aPerson.manager;
+
+class Person {
+  get manager() {return this.department.manager;}
+```
+### after
+```js
+manager = aPerson.department.manager;
+```
+### 動機
+- 「委譲の隠蔽」の逆
+- 全てのメソッドの転送用メソッドを実装するのが煩わしくなった場合
+### 手順
+- 委譲先のオブジェクトを取得するgetterを作り、隠蔽していた委譲を復活させていく
+### ポイント
+- 委譲の隠蔽と仲介人の除去が混在していても良い
+- 開発者の匙加減
+## アルゴリズムの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/substitutealgorithm.html
+### before
+```js
+function foundPerson(people) {
+  for(let i = 0; i < people.length; i++) {
+    if (people[i] === "Don") {
+      return "Don";
+    }
+    if (people[i] === "John") {
+      return "John";
+    }
+    if (people[i] === "Kent") {
+      return "Kent";
+    }
+  }
+  return "";
+}
+```
+### after
+```js
+function foundPerson(people) {
+  const candidates = ["Don", "John", "Kent"];
+  return people.find(p => candidates.includes(p)) || '';
+}
 
 ```
 ### 動機
+- もっと単純なやり方がある時
 ### 手順
 ### ポイント
+- メソッドをなるべく分割しておいたほうがやりやすい
