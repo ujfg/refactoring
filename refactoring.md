@@ -525,3 +525,227 @@ function foundPerson(people) {
 ### 手順
 ### ポイント
 - メソッドをなるべく分割しておいたほうがやりやすい
+# 第８章 特性の移動
+## 関数の移動
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/movefunction.html
+### before
+```js
+class Account {
+  get overdraftCharge() {...}
+```
+### after
+```js
+class AccountType {
+  get overdraftCharge() {...}
+```
+### 動機
+- 関数をより適したコンテクストの場所(クラス)に移動したい
+### 手順
+- 移動したい関数のそのコンテキストでの依存対象を洗い出す
+- 選択した関数がポリモーフィックかどうか確認する
+- 関数を別の名前で新設し、元の関数内から呼び出し、必要であれば元の関数を削除してインライン化する
+### ポイント
+- 新たなクラスを抽出するところから始まる場合もある
+- どこに置けばいいのかの判断が難しい場合は移動する必要性も薄いかも
+- 新たな関数に渡すパラメータが多い場合はオブジェクトごと渡す
+## フィールドの移動
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/movefield.html
+### before
+```js
+class Customer {
+  get plan() {return this._plan;}
+  get discountRate() {return this._discountRate;}
+```
+### after
+```js
+class Customer {
+  get plan() {return this._plan;}
+  get discountRate() {return this.plan.discountRate;}
+```
+### 動機
+- データ構造を是正したい
+  - あるレコードを関数に渡す時に必ず別レコードを渡す必要がある
+  - レコードを更新するたびに別レコードのあるフィールドも更新している
+### 手順
+- 移動元のフィールドをカプセル化し、移動しやすくする
+- 移行する
+### ポイント
+- 外部仕様が変わらないよう注意
+## ステートメントの関数内への移動
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/movestatementsintofunction.html
+### before
+```js
+result.push(`<p>title: ${person.photo.title}</p>`);
+result.concat(photoData(person.photo));
+
+function photoData(aPhoto) {
+  return [
+    `<p>location: ${aPhoto.location}</p>`,
+    `<p>date: ${aPhoto.date.toDateString()}</p>`,
+  ];
+}
+```
+### after
+```js
+result.concat(photoData(person.photo));
+
+function photoData(aPhoto) {
+  return [
+    `<p>title: ${aPhoto.title}</p>`,
+    `<p>location: ${aPhoto.location}</p>`,
+    `<p>date: ${aPhoto.date.toDateString()}</p>`,
+  ];
+}
+```
+### 動機
+- 関数に含めた方が良いステートメントを関数内に移動(することによる重複の削除)
+### 手順
+- ステートメントを関数内に含めた新たな関数を作る
+- 元の関数とステートメントを新たな関数に置き換えながらテスト
+- 必要があれば新たな関数の名前を改善
+### ポイント
+- 共通化した部分に差異が生じたら「ステートメントの呼び出し側への移動」
+## ステートメントの呼び出し側への移動
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/movestatementstocallers.html
+### before
+```js
+emitPhotoData(outStream, person.photo);
+
+function emitPhotoData(outStream, photo) {
+  outStream.write(`<p>title: ${photo.title}</p>\n`);
+  outStream.write(`<p>location: ${photo.location}</p>\n`);
+}
+```
+### after
+```js
+emitPhotoData(outStream, person.photo);
+outStream.write(`<p>location: ${person.photo.location}</p>\n`);
+
+function emitPhotoData(outStream, photo) {
+  outStream.write(`<p>title: ${photo.title}</p>\n`);
+}
+```
+### 動機
+- 関数の中で場合分けが発生したり、異質なものが紛れ込んだ
+### 手順
+- 分離したい部分以外を抜き出して新たな関数を作り、元の関数内で呼ぶ
+- 順次置き換え
+### ポイント
+## 関数呼び出しによるインラインコードの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replaceinlinecodewithfunctioncall.html
+### before
+```js
+let appliesToMass = false;
+for(const s of states) {
+  if (s === "MA") appliesToMass = true;
+}
+```
+### after
+```js
+appliesToMass = states.includes("MA");
+```
+### 動機
+- この処理もう関数化されてるよって時
+### 手順
+- インラインコードを既存の関数で置き換え
+### ポイント
+- 置き換えた時に意味が通らなければ関数名が悪いかも
+## ステートメントのスライド
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/slidestatements.html
+### before
+```js
+const pricingPlan = retrievePricingPlan();
+const order = retreiveOrder();
+let charge;
+const chargePerUnit = pricingPlan.unit;
+```
+### after
+```js
+const pricingPlan = retrievePricingPlan();
+const chargePerUnit = pricingPlan.unit;
+const order = retreiveOrder();
+let charge;
+```
+### 動機
+- 意味的にまとまってるものを場所的にも近くにおきたい
+### 手順
+- 影響の有無を考慮しながら場所を移動
+### ポイント
+- 「関数の抽出」などの前準備として行うことが多い
+- 副作用のないコードを書いているとやりやすい
+  - コマンドとクエリの分離原則(値を返す関数には副作用を与えない)
+## ループの分離
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/splitloop.html
+### before
+```js
+let averageAge = 0;
+let totalSalary = 0;
+for (const p of people) {
+  averageAge += p.age;
+  totalSalary += p.salary;
+}
+averageAge = averageAge / people.length;
+```
+### after
+```js
+let totalSalary = 0;
+for (const p of people) {
+  totalSalary += p.salary;
+}
+
+let averageAge = 0;
+for (const p of people) {
+  averageAge += p.age;
+}
+averageAge = averageAge / people.length;
+```
+### 動機
+- 一つのループの中で複数の作業が行われているとメンテが辛い
+### 手順
+- ループをコピーする
+- 重複による副作用を特定し、排除する
+### ポイント
+- 関数の抽出を続けて行うことが多い
+- 性能上のボトルネックになることはほとんどない
+## パイプラインによるループの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replaceloopwithpipeline.html
+### before
+```js
+const names = [];
+for (const i of input) {
+  if (i.job === "programmer")
+    names.push(i.name);
+}
+```
+### after
+```js
+const names = input
+  .filter(i => i.job === "programmer")
+  .map(i => i.name)
+;
+```
+### 動機
+- ループよりパイプラインの方が何をしているかがわかりやすい
+### 手順
+- ループ処理を移し替えていく用の変数を用意し、ループに与える
+- ループ処理の中の一つ一つの処理を、順次変数に対するパイプライン処理に置き換えていく
+### ポイント
+- csv処理とかに使える
+- インデントやスペースなどの見た目も整えるとよりきれい
+## デッドコードの削除
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/removedeadcode.html
+### before
+```js
+if(false) {
+  doSomethingThatUsedToMatter();
+}
+```
+### after
+```js
+ 
+```
+### 動機
+- 不要なものは削除
+### 手順
+### ポイント
+- コメントアウトはバージョン管理システム以前の習慣
