@@ -749,3 +749,256 @@ if(false) {
 ### 手順
 ### ポイント
 - コメントアウトはバージョン管理システム以前の習慣
+# 第９章 データの再編成
+## 変数の分離
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/splitvariable.html
+### before
+```js
+let temp = 2 * (height + width);
+console.log(temp);
+temp = height * width;
+console.log(temp);
+```
+### after
+```js
+const perimeter = 2 * (height + width);
+console.log(perimeter);
+const area = height * width;
+console.log(area);
+```
+### 動機
+- 変数が複数の意味で使われていたり、不必要に再代入されたりしている
+### 手順
+- 宣言時と最初の代入時で変数名を変える
+  - 可能であれば新しい変数は変更不可にする
+- 変数名を変更していく
+### ポイント
+- 引数を関数内でミューテーションしている場合はこれを適用するのが良い
+## フィールド名の変更
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/renamefield.html
+### before
+```js
+class Organization {
+  get name() {...}
+}
+```
+### after
+```js
+class Organization {
+  get title() {...}
+}
+```
+### 動機
+- 名前重要
+### 手順
+- レコードのスコープが狭い場合は一括置換で終了
+- レコードがカプセル化していなければする
+- 旧名称と新名称どちらでも呼べるようにし、順次変更していく
+### ポイント
+- 途中でテストが失敗するなら慎重な、順次変更可能な手法を検討する
+## 問い合わせによる導出変数の置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacederivedvariablewithquery.html
+### before
+```js
+get discountedTotal() {return this._discountedTotal;}
+set discount(aNumber) {
+  const old = this._discount;
+  this._discount = aNumber;
+  this._discountedTotal += old - aNumber; 
+}
+```
+### after
+```js
+get discountedTotal() {return this._baseTotal - this._discount;}
+set discount(aNumber) {this._discount = aNumber;}
+```
+### 動機
+- 変更可能なデータをできるだけ無くしたい
+  - バグの温床
+- 導出変数(値が変わった変数を返す)より、新たな値を計算して返す問い合わせ(クエリ)のほうがバグが少ない
+### 手順
+- 変数の変更を計算する関数を作る
+- 変数の参照箇所を関数呼び出しで置き換える
+### ポイント
+- 計算できるなら毎回計算する(関数型言語っぽく)
+## 参照から値への変更
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/changereferencetovalue.html
+### before
+```js
+class Product {
+  applyDiscount(arg) {this._price.amount -= arg;}
+```
+### after
+```js
+class Product {
+  applyDiscount(arg) {
+    this._price = new Money(this._price.amount - arg, this._price.currency);
+  }
+```
+### 動機
+- フィールドが値オブジェクトを持つようにしたい
+  - 値オブジェクトは変更されないので仕様の把握が容易
+  - 分散システムや並行システムで重要
+### 手順
+- 各setterに対して「setterの削除」を行う
+- 値オブジェクトとして正しく同値比較ができるようにする(rubyなら==メソッドをオーバーライドするなど)
+### ポイント
+- あるオブジェクトの変更を他の場所でも共有したいなら値オブジェクトは使わない
+## 値から参照への変更
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/changevaluetoreference.html
+### before
+```js
+let customer = new Customer(customerData);
+```
+### after
+```js
+let customer = customerRepository.get(customerData.id);
+```
+### 動機
+- あるオブジェクトの変更を他の場所でも共有したい
+### 手順
+- 参照オブジェクトのインスタンス用のリポジトリを作成する
+- リポジトリを使用して参照オブジェクトを取得するようコンストラクタを変更する
+### ポイント
+- 依存関係が心配ならリポジトリをコンストラクタのパラメータとして渡しても良い
+# 第９章
+## 条件記述の分解
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/decomposeconditional.html
+### before
+```js
+if (!aDate.isBefore(plan.summerStart) && !aDate.isAfter(plan.summerEnd))
+  charge = quantity * plan.summerRate;
+else
+  charge = quantity * plan.regularRate + plan.regularServiceCharge;
+```
+### after
+```js
+if (summer())
+  charge = summerCharge();
+else
+  charge = regularCharge();
+```
+### 動機
+- 条件分岐は「何」をしているかはわかっても「なぜ」そうしているかがわかりにくい
+- 条件分岐を分解して関数に置き換え、名付けをすることで意図が明確になる
+### 手順
+- 各条件に「関数の抽出」を適用する
+### ポイント
+## 条件記述の統合
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/decomposeconditional.html
+### before
+```js
+if (anEmployee.seniority < 2) return 0;
+if (anEmployee.monthsDisabled > 12) return 0;
+if (anEmployee.isPartTime) return 0;
+```
+### after
+```js
+if (isNotEligableForDisability()) return 0;
+
+function isNotEligableForDisability() {
+  return ((anEmployee.seniority < 2)
+          || (anEmployee.monthsDisabled > 12)
+          || (anEmployee.isPartTime));
+}
+```
+### 動機
+- 複数の条件分岐を行っている箇所で、何を判定しているのか明確にしたい
+### 手順
+- いずれの条件判定にも副作用がないことを確認する
+  - 副作用がある場合は「問い合わせと更新の分離」を行う
+- 条件判定を論理演算子を用いて結合していき、一つになった時点で関数として抽出する
+### ポイント
+- それぞれが独立した条件分岐であれば無理に統合する必要はない
+## ガード節による入れ子の条件記述の置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacenestedconditionalwithguardclauses.html
+### before
+```js
+function getPayAmount() {
+  let result;
+  if (isDead)
+    result = deadAmount();
+  else {
+    if (isSeparated)
+      result = separatedAmount();
+    else {
+      if (isRetired)
+        result = retiredAmount();
+      else
+        result = normalPayAmount();
+    }
+  }
+  return result;
+}
+```
+### after
+```js
+function getPayAmount() {
+  if (isDead) return deadAmount();
+  if (isSeparated) return separatedAmount();
+  if (isRetired) return retiredAmount();
+  return normalPayAmount();
+}
+```
+### 動機
+- 主要な処理ではないことを明示して、条件分岐にウェイトの差をつける
+### 手順
+- 置き換えるべき条件で最も外側のものから順次ガード節に変更していく
+### ポイント
+- if と elseを使う時はそれぞれの条件が等価な時
+- 例外処理と正常処理なら、例外処理の条件だけでアーリーリターンしてしまった方が良い
+## ポリモーフィズムによる条件記述の置き換え
+
+### before
+```js
+switch (bird.type) {
+  case 'EuropeanSwallow':
+    return "average";
+  case 'AfricanSwallow':
+    return (bird.numberOfCoconuts > 2) ? "tired" : "average";
+  case 'NorwegianBlueParrot':
+    return (bird.voltage > 100) ? "scorched" : "beautiful";
+  default:
+    return "unknown";
+```
+### after
+```js
+class EuropeanSwallow {
+  get plumage() {
+    return "average";
+  }
+class AfricanSwallow {
+  get plumage() {
+     return (this.numberOfCoconuts > 2) ? "tired" : "average";
+  }
+class NorwegianBlueParrot {
+  get plumage() {
+     return (this.voltage > 100) ? "scorched" : "beautiful";
+  }
+```
+### 動機
+- 難解な条件分岐を上位概念に変換したい
+### 手順
+- リンク参照
+### ポイント
+- スーパークラスに条件を抽出したりも可能
+- 単純なifやswitchが悪というわけではない
+## 特殊ケース(nullオブジェクト)の導入
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/introducespecialcase.html
+### before
+```js
+if (aCustomer === "unknown") customerName = "occupant";
+```
+### after
+```js
+class UnknownCustomer {
+    get name() {return "occupant";}
+```
+### 動機
+- 特殊なケースに毎回対応しているコードがあちこちにある時に、特殊ケースとして分離してそこに振る舞いをまとめたい
+- 典型的なケースで言うとnullオブジェクト
+### 手順
+- リンク参照
+### ポイント
+- `if customer === "unknown"`を一気に特殊オブジェクトへの問い合わせに置き換えるのはしんどい
+- 「関数の抽出」で`if customer === "unknown"`を関数として抽出してしまえば順次変更できる
