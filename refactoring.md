@@ -861,7 +861,7 @@ let customer = customerRepository.get(customerData.id);
 - リポジトリを使用して参照オブジェクトを取得するようコンストラクタを変更する
 ### ポイント
 - 依存関係が心配ならリポジトリをコンストラクタのパラメータとして渡しても良い
-# 第９章
+# 第１０章 条件記述の単純化
 ## 条件記述の分解
 https://memberservices.informit.com/my_account/webedition/9780135425664/html/decomposeconditional.html
 ### before
@@ -1002,3 +1002,129 @@ class UnknownCustomer {
 ### ポイント
 - `if customer === "unknown"`を一気に特殊オブジェクトへの問い合わせに置き換えるのはしんどい
 - 「関数の抽出」で`if customer === "unknown"`を関数として抽出してしまえば順次変更できる
+## アサーションの導入
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/introduceassertion.html
+### before
+```js
+if (this.discountRate)
+  base = base - (this.discountRate * base);
+```
+### after
+```js
+assert(this.discountRate >= 0);
+if (this.discountRate)
+  base = base - (this.discountRate * base);
+```
+### 動機
+- このコードはこれを前提にしていますよ、と言うことをコードとして明示できる
+- エラー発見にも役立つが、本来コミュニュケーションのためなので、理想としてはアサーションが一切なくても動く状態が好ましい
+### 手順
+- ある条件が真であることを前提にできる場合にアサーションを書く
+### ポイント
+- 書く必要があるのは「真であることすべて」ではなく「真である必要がある」こと
+# 第１１章　APIのリファクタリング
+## 問い合わせと更新の分離
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/separatequeryfrommodifier.html
+### before
+```js
+function getTotalOutstandingAndSendBill() {
+  const result = customer.invoices.reduce((total, each) => each.amount + total, 0);
+  sendBill();
+  return result;
+}
+```
+### after
+```js
+function totalOutstanding() {
+  return customer.invoices.reduce((total, each) => each.amount + total, 0);  
+}
+function sendBill() {
+  emailGateway.send(formatBill(customer));
+}
+```
+### 動機
+- 副作用のある関数とない関数を分離したい
+  - 冪等性、テスト容易性などメリット多数
+  - 「コマンドとクエリの分離原則」=> 値を返す関数は観察可能な副作用を持ってはならない
+### 手順
+- 関数をコピーして問い合わせ用に名付け、副作用を除去する
+- 元の関数の呼び出しについて戻り値を使っている場合は新たな関数呼び出しに置き換え、元の関数をその後ろで呼び出す
+- 元の関数から戻り値を削除する
+### ポイント
+## パラメータによる関数の統合
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/parameterizefunction.html
+### before
+```js
+function tenPercentRaise(aPerson) {
+  aPerson.salary = aPerson.salary.multiply(1.1);
+}
+function fivePercentRaise(aPerson) {
+  aPerson.salary = aPerson.salary.multiply(1.05);
+}
+```
+### after
+```js
+function raise(aPerson, factor) {
+  aPerson.salary = aPerson.salary.multiply(1 + factor);
+}
+```
+### 動機
+- リテラル値が異なるだけのよく似たロジックを持つ関数の重複を削除したい
+### 手順
+- 関数のリテラル値をパラメータに変更する
+- 類似する関数呼び出しを置き換える
+### ポイント
+- ロジックの一部(最大値と最小値をパラメータにとって間にあることを判定するなど)を切り出すのも有効
+## フラグパターンの削除
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/removeflagargument.html
+### before
+```js
+function setDimension(name, value) {
+  if (name === "height") {
+    this._height = value;
+    return;
+  }
+  if (name === "width") {
+    this._width = value;
+    return;
+  }
+}
+```
+### after
+```js
+function setHeight(value) {this._height = value;}
+function setWidth (value) {this._width = value;}
+```
+### 動機
+- 関数内でのフラグの条件分岐は中身が読み取りにくい 
+### 手順
+- フラグで分岐している処理を別々の関数として切り出す
+- フラグの使われ方が複雑な場合はラップ関数を作る
+### ポイント
+- 関数のパラメータデフラグをわたすデメリット
+  - どの関数呼び出しが使えてどう呼び出せばいいかの理解が難しくなる
+  - 利用可能な関数呼び出しの多様性を隠してしまう
+- 複数のフラグを引数に取るならその組み合わせで処理を変更する関数の意味はある
+  - 全ての組み合わせを関数化すると大量になるため
+## オブジェクトそのものの呼び出し
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/preservewholeobject.html
+### before
+```js
+const low = aRoom.daysTempRange.low;
+const high = aRoom.daysTempRange.high;
+if (aPlan.withinRange(low, high))
+```
+### after
+```js
+if (aPlan.withinRange(aRoom.daysTempRange))
+```
+### 動機
+- 引数の数を減らしたい
+### 手順
+- 引数の少ない新しい関数を作って変更していく
+- 最後に古い関数を削除して新しい関数の名前を戻す
+### ポイント
+- 依存関係を増やしたくない時(Moduleをまたいでオブジェクトを渡すなど)
+  - あるオブジェクトからいくつか値を取り出すロジックをオブジェクト側に移す
+  - 同じデータの群れが頻出するなら「パラメータオブジェクトの導入」を適用
+  - あるオブジェクトの部分集合だけ扱うことがよくあるなら「クラスの抽出」
