@@ -1128,3 +1128,98 @@ if (aPlan.withinRange(aRoom.daysTempRange))
   - あるオブジェクトからいくつか値を取り出すロジックをオブジェクト側に移す
   - 同じデータの群れが頻出するなら「パラメータオブジェクトの導入」を適用
   - あるオブジェクトの部分集合だけ扱うことがよくあるなら「クラスの抽出」
+## 問い合わせによるパラメータの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replaceparameterwithquery.html
+### before
+```js
+availableVacation(anEmployee, anEmployee.grade);
+
+function availableVacation(anEmployee, grade) {
+  // calculate vacation...
+```
+### after
+```js
+availableVacation(anEmployee)
+
+function availableVacation(anEmployee) {
+  const grade = anEmployee.grade;
+  // calculate vacation...
+```
+### 動機
+- 無駄な引数を渡したくない
+### 手順
+- 関数本体での引数への参照を、別の引数からの計算に置き換える
+- 関数のシグニチャを変更する
+### ポイント
+- 引数を求める責務が関数内に移るので、それが正当かどうかに注意
+- 一つの引数からもう一方がもとまるような場合に適している
+- 参照透過性をわざわざ崩さないよう注意
+## パラメータによる問い合わせの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacequerywithparameter.html
+### before
+```js
+targetTemperature(aPlan)
+
+function targetTemperature(aPlan) {
+  currentTemperature = thermostat.currentTemperature;
+  // rest of function...
+```
+### after
+```js
+targetTemperature(aPlan, thermostat.currentTemperature)
+
+function targetTemperature(aPlan, currentTemperature) {
+  // rest of function...
+```
+### 動機
+- コード内の依存関係を変更したい(参照渡しではなく値渡しにするなど)
+- 関数に渡す引数が増えることになる
+### 手順
+- 関数内で問い合わせを行っている箇所を変数として分離する
+- それ以外を別の名前の関数にし、引数として上記を渡す
+- 「変数のインライン化」で変数を取り除く
+- 元の関数に「関数のインライン化」を適用することで削除し、新しい関数の名前を古い関数の名前に変更する
+### ポイント
+- 依存管理してできるだけ純粋関数(参照透過性を持つ関数)にすることはメリットがある
+  - 例えばあるクラスとそのインスタンスは不変となり、状態変化が起きなくなる
+- 呼び出し側のやることが増える(インターフェースが複雑になる)ので、バランスが重要
+## setterの削除
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/removesettingmethod.html
+### before
+```js
+class Person {
+  get name() {...}
+  set name(aString) {...}
+```
+### after
+```js
+class Person {
+  get name() {...}
+```
+### 動機
+- フィールドが変更されないことを明示したい
+### 手順
+- 設定したい値をコンストラクタ内で設定できるようにする
+- setterを読んでいる箇所を、新しいオブジェクトをnewするように変更していく
+- setterを消す
+### ポイント
+- 状態を共有したい場合はこのリファクタリングは不可
+## ファクトリ関数によるコンストラクタの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replaceconstructorwithfactoryfunction.html
+### before
+```js
+leadEngineer = new Employee(document.leadEngineer, 'E');
+```
+### after
+```js
+leadEngineer = createEngineer(document.leadEngineer);
+```
+### 動機
+- newするだけがインスタンスを作る方法じゃない
+  - newしてることしか名前からわからない
+  - 関数として扱いづらい
+### 手順
+- ファクトリ関数を作成し、その中でnewする
+- 既存のnewをファクトリ関数に置き換えていく
+### ポイント
+- typeがEngineerのEmployeeを作成するならcreateEngineer関数の中でEmployeeをnewするなど
