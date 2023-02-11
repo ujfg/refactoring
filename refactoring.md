@@ -1022,7 +1022,7 @@ if (this.discountRate)
 - ある条件が真であることを前提にできる場合にアサーションを書く
 ### ポイント
 - 書く必要があるのは「真であることすべて」ではなく「真である必要がある」こと
-# 第１１章　APIのリファクタリング
+# 第１１章 APIのリファクタリング
 ## 問い合わせと更新の分離
 https://memberservices.informit.com/my_account/webedition/9780135425664/html/separatequeryfrommodifier.html
 ### before
@@ -1223,3 +1223,175 @@ leadEngineer = createEngineer(document.leadEngineer);
 - 既存のnewをファクトリ関数に置き換えていく
 ### ポイント
 - typeがEngineerのEmployeeを作成するならcreateEngineer関数の中でEmployeeをnewするなど
+## コマンドによる関数の置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacefunctionwithcommand.html
+### before
+```js
+function score(candidate, medicalExam, scoringGuide) {
+  let result = 0;
+  let healthLevel = 0;
+  // long body code
+}
+```
+### after
+```js
+class Scorer {
+  constructor(candidate, medicalExam, scoringGuide) {
+    this._candidate = candidate;
+    this._medicalExam = medicalExam;
+    this._scoringGuide = scoringGuide;
+  }
+
+  execute() {
+    this._result = 0;
+    this._healthLevel = 0;
+    // long body code
+  }
+}
+
+new Scorer(candidate, medicalExam, scoringGuide).execute()
+```
+### 動機
+- 関数自体をオブジェクトとして扱いたい(関数が第一級でない言語など)
+### 手順
+- 関数のためのクラスを作る
+- callやexecuteなどのメソッドを実装する
+  - constructorに値を渡し、executeは引数無しにする
+  - 全てのローカル変数をフィールドにすれば、関数の抽出が容易
+### ポイント
+- メリット
+  - 継承やフックが使える
+  - 不空数のメソッドとフィールドを使用して一つの複雑な関数を分解できる
+- デメリット
+  - 複雑になる
+  - できれば使わない方が良い
+## 関数によるコマンドの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacecommandwithfunction.html
+### before
+```js
+refactorgram
+class ChargeCalculator {
+  constructor (customer, usage){
+    this._customer = customer;
+    this._usage = usage;
+  }
+  execute() {
+    return this._customer.rate * this._usage;
+  }
+}
+```
+### after
+```js
+function charge(customer, usage) {
+  return customer.rate * usage;
+}
+```
+### 動機
+- コマンドは複雑になりがち
+### 手順
+- コマンド(`new xxx().execute()`)をラップする関数を作る(引数はコンストラクタに渡す値)
+- コマンドの内容をその関数の中に移す
+### ポイント
+# 第１２章 継承の取り扱い
+## メソッドの引き上げ
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/pullupmethod.html
+### before
+```js
+class Employee {...}
+
+class Salesman extends Employee {
+  get name() {...}
+}
+
+class Engineer extends Employee {
+  get name() {...}
+}
+```
+### after
+```js
+class Employee {
+  get name() {...}
+}
+
+class Salesman extends Employee {...}
+class Engineer extends Employee {...}
+```
+### 動機
+- 重複をなくす
+  - 子同士でロジックが共通している場合、違いをパラメータに吸収して親クラスにまとめられないか
+### 手順
+- 引き上げたいメソッドが同じになるまでリファクタリングする
+- 片方のサブクラスのメソッドを削除する
+- テストしながら削除を繰り返す
+### ポイント
+- 引き上げたメソッドの中に小クラスでしか実装されていないメソッドがあった場合`SubclassResponsibilityEroor`を起こす同名のメソッドを親クラスに定義すると良い
+  - 他にも子クラスが多い場合に有効
+## フィールドの引き上げ
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/pullupfield.html
+### before
+```js
+class Employee {...} // Java
+
+class Salesman extends Employee {
+  private String name;
+}
+
+class Engineer extends Employee {
+  private String name;
+}
+```
+### after
+```js
+class Employee {
+  protected String name;
+}
+
+class Salesman extends Employee {...}
+class Engineer extends Employee {...}
+```
+### 動機
+- 継承関係が整理されると特性が重複することがある
+### 手順
+### ポイント
+- フィールドをクラス定義の一部として定義しない言語の場合、「コンストラクタ本体の引き上げ」が不可欠
+## コンストラクタ本体の引き上げ
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/pullupconstructorbody.html
+### before
+```js
+class Party {...}
+
+class Employee extends Party {
+  constructor(name, id, monthlyCost) {
+    super();
+    this._id = id;
+    this._name = name;
+    this._monthlyCost = monthlyCost;
+  }
+}
+```
+### after
+```js
+class Party {
+  constructor(name){
+    this._name = name;
+  }
+}
+
+class Employee extends Party {
+  constructor(name, id, monthlyCost) {
+    super(name);
+    this._id = id;
+    this._monthlyCost = monthlyCost;
+  }
+}
+```
+### 動機
+- 子クラスのコンストラクタ内で同じ処理を行っているので重複を排除したい
+### 手順
+- 子クラスの共通の処理をsuperの直後に置くよう移動する
+- 共通の処理を親クラスのconstructorに移動する
+- constructorの後半が重複している場合は「関数の抽出」→「メソッドの引き上げ」
+### ポイント
+- このリファクタリングが混乱し始めた場合は「ファクトリ関数によるコンストラクタの置き換え」を検討
+- 最初にsuperしてから子クラス独自の処理をするルールにした方が良い
+- 子クラスのconstructorの後半が重複している場合は、重複している部分を関数にまとめて親クラスに定義するのが良い
