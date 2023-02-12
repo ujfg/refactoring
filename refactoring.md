@@ -1395,3 +1395,145 @@ class Employee extends Party {
 - このリファクタリングが混乱し始めた場合は「ファクトリ関数によるコンストラクタの置き換え」を検討
 - 最初にsuperしてから子クラス独自の処理をするルールにした方が良い
 - 子クラスのconstructorの後半が重複している場合は、重複している部分を関数にまとめて親クラスに定義するのが良い
+## メソッドの押し下げ
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/pushdownmethod.html
+### before
+```js
+class Employee {
+  get quota {...}
+}
+
+class Engineer extends Employee {...}
+class Salesman extends Employee {...}
+```
+### after
+```js
+class Employee {...}
+class Engineer extends Employee {...}
+class Salesman extends Employee {
+  get quota {...}  
+}
+```
+### 動機
+- あるメソッドが少数のサブクラスだけに関わる処理を行っている
+### 手順
+- メソッドをサブクラスにコピーする
+- スーパークラスから該当メソッドを削除する
+### ポイント
+## フィールドの押し下げ
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/pushdownfield.html
+### before
+```js
+class Employee {        // Java
+  private String quota;
+}
+
+class Engineer extends Employee {...}
+class Salesman extends Employee {...}
+```
+### after
+```js
+class Employee {...}
+class Engineer extends Employee {...}
+
+class Salesman extends Employee {
+  protected String quota;
+}
+```
+### 動機
+- あるフィールドが少数のサブクラスでしか使用されていない
+### 手順
+### ポイント
+## サブクラスによるタイプコードの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacetypecodewithsubclasses.html
+### before
+```js
+function createEmployee(name, type) {
+  return new Employee(name, type);
+}
+```
+### after
+```js
+function createEmployee(name, type) {
+  switch (type) {
+    case "engineer": return new Engineer(name);
+    case "salesman": return new Salesman(name);
+    case "manager":  return new Manager (name);
+  }
+```
+### 動機
+- typeで場合分けしているような箇所を継承を使ってわかりやすくしたい
+- 継承を他の用途に使っている場合は、typeごとにサブクラスに分けるのはできない
+  - type自体をクラス化し、それを継承する形でそれぞれの個別タイプをクラス化する
+  - type分けしたいクラスのtypeフィールドにそのクラスのインスタンスを持たせるようにする(Strategyパターン)
+### 手順
+- リンク参照
+### ポイント
+- type自体をクラス化する場合は、typeインスタンスを生成する箇所でswitch文を使用することになる
+## サブクラスの削除
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/removesubclass.html
+### before
+```js
+class Person {
+  get genderCode() {return "X";}
+}
+class Male extends Person {
+  get genderCode() {return "M";}
+}
+class Female extends Person {
+  get genderCode() {return "F";}
+}
+```
+### after
+```js
+class Person {
+  get genderCode() {return this._genderCode;}
+}
+```
+### 動機
+- サブクラスが小さくなって存在価値がなくなったので親クラスに統合したい
+### 手順
+- スーパークラスのコンストラクタで、渡した引数をフィールドとして保持し、それを区別の値(type的なもの)として使うようにする
+- スーパークラスのファクトリメソッドで、サブクラスを生成する代わりに、引数にtype的なものを渡して親クラスをnewするようにする
+- もしサブクラスかどうかを判定しているような処理がコード上のどこかにあれば、`isXXX()`のようなメソッドとして親クラスに持たせる
+### ポイント
+## スーパークラスの抽出
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/extractsuperclass.html
+### before
+```js
+class Department {
+  get totalAnnualCost() {...}
+  get name() {...}
+  get headCount() {...}
+}
+
+class Employee {
+  get annualCost() {...}
+  get name() {...}
+  get id() {...}
+}
+```
+### after
+```js
+class Party {
+  get name() {...}
+  get annualCost() {...}
+}
+
+class Department extends Party {
+  get annualCost() {...}
+  get headCount() {...}
+}
+
+class Employee extends Party {
+  get annualCost() {...}
+  get id() {...}
+}
+```
+### 動機
+- 共通部分を親クラスとして抽出したい
+### 手順
+- 空の親クラスを作って継承させる
+- 「コンストラクタ本体の引き上げ」「メソッドの引き上げ」「フィールドの引き上げ」を駆使して共通部分を上げていく
+### ポイント
+- 委譲よりもこちらの方が簡単だが、のちのち「以上によるスーパークラスの置き換え」で委譲にすることもできる
