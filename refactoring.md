@@ -1537,3 +1537,94 @@ class Employee extends Party {
 - 「コンストラクタ本体の引き上げ」「メソッドの引き上げ」「フィールドの引き上げ」を駆使して共通部分を上げていく
 ### ポイント
 - 委譲よりもこちらの方が簡単だが、のちのち「以上によるスーパークラスの置き換え」で委譲にすることもできる
+## クラス階層の平坦化
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/collapsehierarchy.html
+### before
+```js
+class Employee {...}
+class Salesman extends Employee {...}
+```
+### after
+```js
+class Employee {...}
+```
+### 動機
+- クラスを分けるほどでもなくなった
+### 手順
+- 「フィールドの引き上げ」「フィールドの押し下げ」「メソッドの引き上げ」「メソッドの押し下げ」を駆使
+### ポイント
+## 委譲によるサブクラスの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacesubclasswithdelegate.html
+### before
+```js
+class Order {
+  get daysToShip() {
+    return this._warehouse.daysToShip;
+  }
+}
+
+class PriorityOrder extends Order {
+  get daysToShip() {
+    return this._priorityPlan.daysToShip;
+  }
+}
+
+```
+### after
+```js
+class Order {
+  get daysToShip() {
+    return (this._priorityDelegate)
+      ? this._priorityDelegate.daysToShip
+      : this._warehouse.daysToShip;
+  }
+}
+
+class PriorityOrderDelegate {
+  get daysToShip() {
+    return this._priorityPlan.daysToShip
+  }
+}
+```
+### 動機
+- もっと有効な継承関係を他のクラスと再構築したい
+### 手順
+- 引数によってサブクラスを生成するファクトリ関数があったとする
+- あるサブクラスを生成している箇所を、delegateクラスの生成に置き換える
+  - 親クラスはXXXDelegeteというフィールドを持ち、そこにdelegeteクラスインスタンスが入る
+  - delegeteクラスはスーパークラスへの逆参照を持つ
+  - サブクラスで処理が分岐していたメソッドは、親クラスでのdelegateクラスインスタンスへの呼び出しとなる
+  - スーパークラスで共通の処理を行っていた部分は、delegateクラス同士に親クラスを持たせ、そこで共通処理する
+### ポイント
+- 継承が悪いわけではない
+- 委譲を使うと双方向参照などの浮く雑性が持ち込まれるが、以下のメリットがある
+  - 継承を別の用途に使える
+  - strategyパターンぽく、delegeteクラスを入れ替えることによって振る舞いを変えられる
+## 委譲によるスーパークラスの置き換え
+https://memberservices.informit.com/my_account/webedition/9780135425664/html/replacesuperclasswithdelegate.html
+### before
+```js
+class List {...}
+class Stack extends List {...}
+```
+### after
+```js
+class Stack {
+  constructor() {
+    this._storage = new List();
+  }
+}
+class List {...}
+```
+### 動機
+- 継承関係ではなくなってきた
+### 手順
+- サブクラスに、スーパークラスのオブジェクトを参照する委譲用フィールドを作る
+  - このフィールドには、初期化時にスーパークラスの新しいインスタンスの参照を格納する
+- スーパークラスの要素(フィールドとメソッド)ごとに、委譲先に転送する転送用の関数をサブクラス内に作る
+- すべてのスーパークラスの要素を転送用関数でオーバーライドしたら、継承関係を削除する
+### ポイント
+- スーパークラスの関数がサブクラスで意味をなさないなら、それはスーパークラスの機能を継承によって利用すべきではない
+- サブクラスのインスタンスはスーパークラスのインスタンスとしてスーパークラスを使用する全てのケースで有効なオブジェクトであるべき
+- いくつかの関数を使いまわしたいだけなら委譲を検討
+- まずは継承を使ってみて、まずければ委譲にリファクタリングする
